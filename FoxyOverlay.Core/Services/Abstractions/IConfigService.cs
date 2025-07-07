@@ -1,3 +1,6 @@
+using System.Threading.Tasks;
+
+
 namespace FoxyOverlay.Core.Services.Abstractions;
 
 public interface IConfigService
