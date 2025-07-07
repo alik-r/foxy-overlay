@@ -13,13 +13,16 @@ public class ConfigService : IConfigService
         WriteIndented = true
     };
 
-    public ConfigService(string filePath)
+    private readonly ILoggingService _logger;
+
+    public ConfigService(ILoggingService logger, string filePath)
     {
+        _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _filePath = filePath ?? throw new ArgumentNullException(nameof(filePath));
     }
     
-    public ConfigService()
-        : this(
+    public ConfigService(ILoggingService logger)
+        : this(logger,
             Path.Combine(
                 Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
                 "FoxyOverlay",
@@ -29,18 +32,19 @@ public class ConfigService : IConfigService
     
     public async Task<Config> LoadAsync()
     {
-        // TODO: Add logging
+        if (!File.Exists(_filePath))
+            return new Config();
+        
         try
         {
-            if (!File.Exists(_filePath))
-                return new Config();
-
-            var json = await File.ReadAllTextAsync(_filePath).ConfigureAwait(false);
-            var cfg = JsonSerializer.Deserialize<Config>(json, _jsonOptions);
+            string json = await File.ReadAllTextAsync(_filePath).ConfigureAwait(false);
+            Config? cfg = JsonSerializer.Deserialize<Config>(json, _jsonOptions);
+            await _logger.LogInfoAsync($"config loaded from {_filePath}");
             return cfg ?? new Config();
         }
-        catch (JsonException)
+        catch (Exception ex)
         {
+            await _logger.LogErrorAsync($"failed to load config from {_filePath}: {ex.Message}");
             return new Config();
         }
     }
@@ -49,11 +53,19 @@ public class ConfigService : IConfigService
     {
         if (config == null) throw new ArgumentNullException(nameof(config));
 
-        var dir = Path.GetDirectoryName(_filePath)!;
-        if (!Directory.Exists(dir))
-            Directory.CreateDirectory(dir);
-        
-        var json = JsonSerializer.Serialize(config, _jsonOptions);
-        await File.WriteAllTextAsync(_filePath, json).ConfigureAwait(false);
+        try
+        {
+            var dir = Path.GetDirectoryName(_filePath)!;
+            if (!Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+            var json = JsonSerializer.Serialize(config, _jsonOptions);
+            await File.WriteAllTextAsync(_filePath, json).ConfigureAwait(false);
+            await _logger.LogInfoAsync($"config saved to {_filePath}");
+        }
+        catch (Exception ex)
+        {
+            await _logger.LogErrorAsync($"failed to save config to {_filePath}: {ex.Message}");
+            throw;
+        }
     }
 }

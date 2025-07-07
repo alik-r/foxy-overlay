@@ -1,6 +1,7 @@
 using FluentAssertions;
 using FoxyOverlay.Core.Services;
 using FoxyOverlay.Core.Services.Abstractions;
+using FoxyOverlay.Core.UnitTests.Stubs;
 
 
 namespace FoxyOverlay.Core.UnitTests.Services;
@@ -32,7 +33,7 @@ public class ConfigServiceTests : IDisposable
     [Fact]
     public async Task LoadAsync_FileMissing_ReturnsDefaultConfig()
     {
-        IConfigService sut = new ConfigService(_tempFile);
+        IConfigService sut = new ConfigService(new NullLoggingService(), _tempFile);
         Config actual = await sut.LoadAsync();
 
         actual.Should().BeEquivalentTo(DefaultConfig);
@@ -49,7 +50,7 @@ public class ConfigServiceTests : IDisposable
             IsMuted = true
         };
         
-        IConfigService sut = new ConfigService(_tempFile);
+        IConfigService sut = new ConfigService(new NullLoggingService(), _tempFile);
         await sut.SaveAsync(original);
         
         File.Exists(_tempFile).Should().BeTrue();
@@ -65,7 +66,7 @@ public class ConfigServiceTests : IDisposable
         Directory.CreateDirectory(Path.GetDirectoryName(_tempFile)!);
         await File.WriteAllTextAsync(_tempFile, "{ not valid json ...");
 
-        IConfigService sut = new ConfigService(_tempFile);
+        IConfigService sut = new ConfigService(new NullLoggingService(), _tempFile);
         Config actual = await sut.LoadAsync();
         
         actual.Should().BeEquivalentTo(DefaultConfig);

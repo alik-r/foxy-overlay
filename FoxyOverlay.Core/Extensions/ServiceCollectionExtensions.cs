@@ -13,4 +13,10 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<IConfigService, ConfigService>();
         return services;
     }
+    
+    public static IServiceCollection AddLoggingService(this IServiceCollection services)
+    {
+        services.AddSingleton<ILoggingService, LoggingService>();
+        return services;
+    }
 }
