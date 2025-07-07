@@ -1,4 +1,11 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Threading;
+using System.Threading.Tasks;
+
 using FoxyOverlay.Core.Services.Abstractions;
+
 
 namespace FoxyOverlay.Core.Services;
 
@@ -46,6 +53,41 @@ public class LoggingService : ILoggingService, IDisposable
         try
         {
             await File.AppendAllTextAsync(_logFilePath, line);
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    public async Task<IEnumerable<string>> ReadLogsAsync(int maxLines = 500)
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            if (!File.Exists(_logFilePath))
+                return Array.Empty<string>();
+
+            using var fs = new FileStream(
+                _logFilePath,
+                FileMode.Open,
+                FileAccess.Read,
+                FileShare.ReadWrite,
+                bufferSize: 4096,
+                FileOptions.SequentialScan);
+
+            using var reader = new StreamReader(fs);
+
+            var buffer = new Queue<string>(maxLines);
+            string? line;
+            while ((line = await reader.ReadLineAsync()) != null)
+            {
+                buffer.Enqueue(line);
+                if (buffer.Count > maxLines)
+                    buffer.Dequeue();
+            }
+
+            return buffer.ToArray();
         }
         finally
         {
