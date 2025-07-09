@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\FoxyOverlay.Core\FoxyOverlay.Core.csproj" />
+    <ProjectReference Include="..\FoxyOverlay.Media\FoxyOverlay.Media.csproj" />
     <ProjectReference Include="..\FoxyOverlay.Services\FoxyOverlay.Services.csproj" />
   </ItemGroup>
 

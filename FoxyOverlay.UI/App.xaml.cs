@@ -1,9 +1,13 @@
 ﻿using System;
 using System.Windows;
 using System.Windows.Resources;
+using FoxyOverlay.Core;
 using FoxyOverlay.Core.Extensions;
 using FoxyOverlay.Core.Services.Abstractions;
+using FoxyOverlay.Media;
+using FoxyOverlay.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using WinForms = System.Windows.Forms;
 using Drawing = System.Drawing;
 
@@ -14,32 +18,58 @@ namespace FoxyOverlay.UI;
 
 public partial class App : Application
 {
-    private ILoggingService _logger;
+    private IHost? _host;
+    private ILoggingService? _logger;
+    private JumpscareService? _jumpscareService;
+    private IConfigService? _configService;
+    private OverlayManager? _overlayManager;
 
     private WinForms.NotifyIcon? _notifyIcon;
     private const string RunKeyPath = @"Software\Microsoft\Windows\CurrentVersion\Run";
     private const string RunValueName = "FoxyOverlay";
 
-    public static IServiceProvider ServiceProvider { get; private set; }
+    public static IServiceProvider ServiceProvider
+        => ((App)Current)._host.Services;
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        var services = new ServiceCollection()
-            .AddLoggingService()
-            .AddConfigService()
-            .AddTransient<SettingsViewModel>();
-        
-        ServiceProvider = services.BuildServiceProvider();
-        
-        _logger = ServiceProvider.GetRequiredService<ILoggingService>();
-        _logger.LogInfoAsync("UI starting").GetAwaiter().GetResult();
-        
         base.OnStartup(e);
+        
+        _host = Host.CreateDefaultBuilder()
+            .ConfigureServices((context, services) =>
+            {
+                services.AddConfigService();
+                services.AddLoggingService();
+                services.AddSingleton<JumpscareService>();
+                services.AddSingleton<OverlayManager>();
+            })
+            .Build();
+        
+        _host.StartAsync().GetAwaiter().GetResult();
+        
+        _configService = _host.Services.GetRequiredService<IConfigService>();
+        _logger = _host.Services.GetRequiredService<ILoggingService>();
+        _jumpscareService = _host.Services.GetRequiredService<JumpscareService>();
+        _overlayManager = _host.Services.GetRequiredService<OverlayManager>();
 
-        // Setup system tray icon + menu
+        _jumpscareService.JumpscareTriggered += async (s, args) =>
+        {
+            try
+            {
+                Config config = await _configService.LoadAsync();
+                await _overlayManager.PlayAsync(config.VideoPath, config.IsMuted);
+                await _jumpscareService.ResumeAsync();
+            }
+            catch (Exception ex)
+            {
+                await _logger.LogErrorAsync($"error in jumpscare handler: {ex}");
+            }
+        };
+        
+        _jumpscareService.StartAsync(default).GetAwaiter().GetResult();
+        
         SetupNotifyIcon();
         
-        // Install to HKCU\...\Run for auto-start
         TryRegisterInStartup();
     }
 
@@ -55,7 +85,8 @@ public partial class App : Application
             _notifyIcon.Dispose();
         }
         
-        if (ServiceProvider is IDisposable disposable) disposable.Dispose(); 
+        _host.StopAsync().GetAwaiter().GetResult();
+        _host.Dispose();
         
         base.OnExit(e);
 }
@@ -108,7 +139,7 @@ public partial class App : Application
         miSettings.Click += (s, a) => OnOpenSettings();
 
         var miRestart  = new WinForms.ToolStripMenuItem("Restart Service");
-        miRestart.Click += (s, a) => OnRestartService();
+        miRestart.Click += (s, a) => OnRestartServiceAsync();
 
         var miQuit     = new WinForms.ToolStripMenuItem("Quit");
         miQuit.Click += (s, a) => OnQuit();
@@ -123,9 +154,32 @@ public partial class App : Application
 
         _notifyIcon.ContextMenuStrip = menu;
     }
-    
-    private void OnOpenSettings()   { /* TODO */ }
-    private void OnRestartService() { /* TODO */ }
-    private void OnQuit()           { Shutdown(); }
+
+    private void OnOpenSettings()
+    {
+        SettingsWindow wnd = new SettingsWindow
+        {
+            Owner = Application.Current.MainWindow
+        };
+        wnd.ShowDialog();
+    }
+
+    private async void OnRestartServiceAsync()
+    {
+        try
+        {
+            await _jumpscareService.ResumeAsync();
+            await _logger.LogInfoAsync("jumpscare service manually restarted");
+        }
+        catch (Exception ex)
+        {
+            await _logger.LogErrorAsync($"error restarting service: {ex}");
+        }
+    }
+
+    private void OnQuit()
+    {
+        _host.StopAsync().GetAwaiter().GetResult(); Shutdown();
+    }
 }
 
