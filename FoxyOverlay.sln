@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FoxyOverlay.UI", "FoxyOverl
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FoxyOverlay.Core.UnitTests", "FoxyOverlay.Core.UnitTests\FoxyOverlay.Core.UnitTests.csproj", "{C033D72A-6DAE-46AB-AE97-54942E75EB04}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FoxyOverlay.Services.UnitTests", "FoxyOverlay.Services.UnitTests\FoxyOverlay.Services.UnitTests.csproj", "{CB66E96C-7856-4A2B-A609-8E4FCA2B7DCE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -42,5 +44,9 @@ Global
 		{C033D72A-6DAE-46AB-AE97-54942E75EB04}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C033D72A-6DAE-46AB-AE97-54942E75EB04}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{C033D72A-6DAE-46AB-AE97-54942E75EB04}.Release|Any CPU.Build.0 = Release|Any CPU
+		{CB66E96C-7856-4A2B-A609-8E4FCA2B7DCE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{CB66E96C-7856-4A2B-A609-8E4FCA2B7DCE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{CB66E96C-7856-4A2B-A609-8E4FCA2B7DCE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{CB66E96C-7856-4A2B-A609-8E4FCA2B7DCE}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal
