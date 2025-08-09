@@ -21,12 +21,17 @@ namespace FoxyOverlay.Media
     public partial class MainWindow : Window
     {
         private readonly IConfigService _configService;
+        private readonly ILoggingService _logger;
         private readonly JumpscareService _jumpscareService;
+        private readonly OverlayManager _overlayManager;
         private Config _config;
 
         public MainWindow()
         {
             InitializeComponent();
+
+            // TODO: Inject overlayManager via DI
+            _overlayManager = new OverlayManager();
 
             var host = Host.CreateDefaultBuilder()
                 .ConfigureServices(services =>
@@ -38,18 +43,15 @@ namespace FoxyOverlay.Media
                 }).Build();
 
             _configService = host.Services.GetRequiredService<IConfigService>();
+            _logger = host.Services.GetRequiredService<ILoggingService>();
             _jumpscareService = host.Services.GetRequiredService<JumpscareService>();
-
-            Loaded += async (_, __) => await LoadConfig();
             
-            // TODO: Inject overlayManager via DI
-            OverlayManager overlayManager = new OverlayManager();
-            _jumpscareService.JumpscareTriggered += (s, e) =>
+            _jumpscareService.JumpscareTriggered += OnJumpscareTriggered;
+
+            Loaded += async (_, __) =>
             {
-                Application.Current.Dispatcher.Invoke(async () =>
-                {
-                    await overlayManager.PlayAsync(_config.VideoPath, _config.IsMuted);
-                });
+                await LoadConfig();
+                await _jumpscareService.ResumeAsync();
             };
         }
 
@@ -98,6 +100,20 @@ namespace FoxyOverlay.Media
         {
             if (!IsLoaded) return;
             this.updateGuaranteedTime();
+        }
+
+        private async void OnJumpscareTriggered(object? sender, EventArgs e)
+        {
+            try
+            {
+                await _overlayManager.PlayAsync(_config.VideoPath, _config.IsMuted);
+                await Task.Delay(TimeSpan.FromSeconds(_config.CooldownSeconds));
+                await _jumpscareService.ResumeAsync();
+            }
+            catch (Exception ex)
+            {
+                await _logger.LogErrorAsync($"Failed during jumpscare trigger: {ex.Message}");
+            }
         }
 
         private void updateGuaranteedTime()
