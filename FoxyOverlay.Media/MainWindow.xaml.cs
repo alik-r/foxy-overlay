@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -51,7 +52,7 @@ namespace FoxyOverlay.Media
             Loaded += async (_, __) =>
             {
                 await LoadConfig();
-                await _jumpscareService.ResumeAsync();
+                await _jumpscareService.StartAsync(CancellationToken.None);
             };
         }
 
