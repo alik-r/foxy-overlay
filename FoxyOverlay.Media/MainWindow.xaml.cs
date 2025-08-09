@@ -1,8 +1,11 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Hosting;
-
+﻿using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Controls;
+
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 using FoxyOverlay.Core;
 using FoxyOverlay.Core.Extensions;
@@ -57,6 +60,8 @@ namespace FoxyOverlay.Media
             CooldownBox.Text = _config.CooldownSeconds.ToString();
             VideoPathBox.Text = _config.VideoPath;
             MuteCheck.IsChecked = _config.IsMuted;
+
+            this.updateGuaranteedTime();
         }
 
         private async void SaveRestart_Click(object sender, RoutedEventArgs e)
@@ -88,5 +93,44 @@ namespace FoxyOverlay.Media
         }
 
         private void Exit_Click(object sender, RoutedEventArgs e) => Application.Current.Shutdown();
+
+        private void ChanceXBox_TextChanged(object sender, TextChangedEventArgs e)
+        {
+            if (!IsLoaded) return;
+            this.updateGuaranteedTime();
+        }
+
+        private void updateGuaranteedTime()
+        {
+            if (!int.TryParse(ChanceXBox.Text, out var chanceX) || chanceX <= 1)
+            {
+                GuaranteedTimeText.Text = "Enter a chance value greater than 1.";
+                return;
+            }
+
+            double probNoTrigger = 1.0 - (1.0 / chanceX);
+            double totalSeconds = Math.Ceiling(Math.Log(0.01) / Math.Log(probNoTrigger));
+            if (double.IsInfinity(totalSeconds) || double.IsNaN(totalSeconds) || totalSeconds <= 0)
+            {
+                GuaranteedTimeText.Text = "Calculation error. Chance is too high or invalid.";
+                return;
+            }
+
+            TimeSpan time = TimeSpan.FromSeconds(totalSeconds);
+            var parts = new List<string>();
+            if (time.Days > 0) parts.Add($"{time.Days} day{(time.Days > 1 ? "s" : "")}");
+            if (time.Hours > 0) parts.Add($"{time.Hours} hour{(time.Hours > 1 ? "s" : "")}");
+            if (time.Minutes > 0) parts.Add($"{time.Minutes} minute{(time.Minutes > 1 ? "s" : "")}");
+            if (time.Seconds > 0) parts.Add($"{time.Seconds} second{(time.Seconds > 1 ? "s" : "")}");
+
+            if (parts.Count == 0)
+            {
+                GuaranteedTimeText.Text = "A jumpscare is almost certain to happen instantly.";
+            }
+            else
+            {
+                GuaranteedTimeText.Text = $"A jumpscare is 99% likely to occur within {string.Join(", ", parts)}.";
+            }
+        }
     }
 }
