@@ -19,16 +19,14 @@ public class JumpscareService : IHostedService, IDisposable
     private readonly ILoggingService _logger;
     private readonly Func<bool> _shouldTrigger;
     private readonly object _lock = new object();
-
     private readonly ITimerFactory _timerFactory;
     private ITimer _timer = null!;
-    
     private Config _config = null!;
     private JumpscareState _state = JumpscareState.Idle;
 
     public event EventHandler? JumpscareTriggered;
 
-    public JumpscareService(IConfigService configService, ILoggingService logger, Func<bool>? shouldTrigger, ITimerFactory timerFactory)
+    public JumpscareService(IConfigService configService, ILoggingService logger, ITimerFactory timerFactory, Func<bool>? shouldTrigger = null)
     {
         _configService = configService ?? throw new ArgumentNullException(nameof(configService));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -47,7 +45,8 @@ public class JumpscareService : IHostedService, IDisposable
             _timer = createTimer();
             startTimer();
         }
-        _logger.LogInfoAsync("jumpscare service started").GetAwaiter().GetResult();
+
+        await _logger.LogInfoAsync("jumpscare service started");
     }
 
     public async Task ResumeAsync()
@@ -55,22 +54,22 @@ public class JumpscareService : IHostedService, IDisposable
         _config = await _configService.LoadAsync();
         lock (_lock)
         {
-            _timer.Dispose();
+            _timer?.Dispose();
             _state = JumpscareState.Idle;
             _timer = createTimer();
             startTimer();
         }
-        _logger.LogInfoAsync("jumpscare service resumed").GetAwaiter().GetResult();
+
+        await _logger.LogInfoAsync("jumpscare service resumed");
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
+    public async Task StopAsync(CancellationToken cancellationToken)
     {
         lock (_lock)
         {
             _timer.Dispose();
         }
-        _logger.LogInfoAsync("jumpscare service stopped").GetAwaiter().GetResult();
-        return Task.CompletedTask;
+        await _logger.LogInfoAsync("jumpscare service stopped");
     }
 
     public JumpscareState CurrentState
@@ -82,12 +81,12 @@ public class JumpscareService : IHostedService, IDisposable
 
     private bool defaultShouldTrigger()
     {
-        var rnd = new Random();
-        return rnd.Next(1, _config.ChanceX + 1) == 1;
+        return Random.Shared.Next(1, _config.ChanceX + 1) == 1;
     }
 
-    private void onTimerTick()
+    private async void onTimerTick()
     {
+        bool trigger = false;
         lock (_lock)
         {
             if (_state != JumpscareState.Idle)
@@ -96,10 +95,28 @@ public class JumpscareService : IHostedService, IDisposable
             if (_shouldTrigger())
             {
                 _state = JumpscareState.Playing;
-                _logger.LogInfoAsync("jumpscare triggered").GetAwaiter().GetResult();
-                JumpscareTriggered?.Invoke(this, EventArgs.Empty);
+                trigger = true;
+            }
+        }
 
-                _timer.Dispose();
+        if (trigger)
+        {
+            try
+            {
+                await _logger.LogInfoAsync("jumpscare triggered");
+                JumpscareTriggered?.Invoke(this, EventArgs.Empty);
+                lock (_lock)
+                {
+                    _timer?.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                await _logger.LogErrorAsync($"Error during jumpscare trigger: {ex.Message}");
+                lock (_lock)
+                {
+                    _state = JumpscareState.Idle;
+                }
             }
         }
     }

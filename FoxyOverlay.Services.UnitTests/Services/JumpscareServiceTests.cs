@@ -20,7 +20,7 @@ public class JumpscareServiceTests
         Config config = new Config { ChanceX = 1 };
         ITimerFactory timerFactory = new FakeTimerFactory();
         JumpscareService sut =
-            new JumpscareService(new MockConfigService(config), new NullLoggingService(), () => false, timerFactory);
+            new JumpscareService(new MockConfigService(config), new NullLoggingService(), timerFactory, () => false);
 
         await sut.StartAsync(CancellationToken.None);
         bool triggered = false;
@@ -38,7 +38,7 @@ public class JumpscareServiceTests
         Config config = new Config { ChanceX = 1 };
         ITimerFactory timerFactory = new FakeTimerFactory();
         JumpscareService sut =
-            new JumpscareService(new MockConfigService(config), new NullLoggingService(), () => true, timerFactory);
+            new JumpscareService(new MockConfigService(config), new NullLoggingService(), timerFactory, () => false);
         
         await sut.StartAsync(CancellationToken.None);
 
@@ -58,7 +58,7 @@ public class JumpscareServiceTests
         Config config = new Config { ChanceX = 1 };
         ITimerFactory timerFactory = new FakeTimerFactory();
         JumpscareService sut =
-            new JumpscareService(new MockConfigService(config), new NullLoggingService(), () => true, timerFactory);
+            new JumpscareService(new MockConfigService(config), new NullLoggingService(), timerFactory, () => false);
         
         await sut.StartAsync(CancellationToken.None);
         
@@ -80,7 +80,7 @@ public class JumpscareServiceTests
         Config config = new Config { ChanceX = 1 };
         ITimerFactory timerFactory = new FakeTimerFactory();
         JumpscareService sut =
-            new JumpscareService(new MockConfigService(config), new NullLoggingService(), () => true, timerFactory);
+            new JumpscareService(new MockConfigService(config), new NullLoggingService(), timerFactory, () => false);
         
         await sut.StartAsync(CancellationToken.None);
         

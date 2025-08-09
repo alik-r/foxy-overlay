@@ -14,7 +14,7 @@ namespace FoxyOverlay.Media.UnitTests
             Assert.True(File.Exists(path), "Please copy a short foxy.mp4 alongside the test assembly.");
 
             var mgr = new OverlayManager();
-            await mgr.PlayAsync(path, mute: true);
+            await mgr.PlayAsync(path, mute: false);
             
             Assert.True(true);
         }

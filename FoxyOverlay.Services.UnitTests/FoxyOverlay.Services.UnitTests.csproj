@@ -23,6 +23,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\FoxyOverlay.Core\FoxyOverlay.Core.csproj" />
+        <ProjectReference Include="..\FoxyOverlay.Core.UnitTests\FoxyOverlay.Core.UnitTests.csproj" />
         <ProjectReference Include="..\FoxyOverlay.Services\FoxyOverlay.Services.csproj" />
     </ItemGroup>
 

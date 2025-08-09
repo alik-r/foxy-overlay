@@ -7,8 +7,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FoxyOverlay.Core", "FoxyOve
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FoxyOverlay.Services", "FoxyOverlay.Services\FoxyOverlay.Services.csproj", "{FB462B39-EA60-4A2E-8543-5CB6E7D9F78C}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FoxyOverlay.UI", "FoxyOverlay.UI\FoxyOverlay.UI.csproj", "{DDFDC175-ED72-47C4-8460-CFF15E6D156D}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FoxyOverlay.Core.UnitTests", "FoxyOverlay.Core.UnitTests\FoxyOverlay.Core.UnitTests.csproj", "{C033D72A-6DAE-46AB-AE97-54942E75EB04}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "FoxyOverlay.Services.UnitTests", "FoxyOverlay.Services.UnitTests\FoxyOverlay.Services.UnitTests.csproj", "{CB66E96C-7856-4A2B-A609-8E4FCA2B7DCE}"
@@ -34,10 +32,6 @@ Global
 		{FB462B39-EA60-4A2E-8543-5CB6E7D9F78C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{FB462B39-EA60-4A2E-8543-5CB6E7D9F78C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{FB462B39-EA60-4A2E-8543-5CB6E7D9F78C}.Release|Any CPU.Build.0 = Release|Any CPU
-		{DDFDC175-ED72-47C4-8460-CFF15E6D156D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{DDFDC175-ED72-47C4-8460-CFF15E6D156D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{DDFDC175-ED72-47C4-8460-CFF15E6D156D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{DDFDC175-ED72-47C4-8460-CFF15E6D156D}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C033D72A-6DAE-46AB-AE97-54942E75EB04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{C033D72A-6DAE-46AB-AE97-54942E75EB04}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{C033D72A-6DAE-46AB-AE97-54942E75EB04}.Release|Any CPU.ActiveCfg = Release|Any CPU

@@ -1,7 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
-    <ProjectReference Include="..\FoxyOverlay.Core.UnitTests\FoxyOverlay.Core.UnitTests.csproj" />
     <ProjectReference Include="..\FoxyOverlay.Core\FoxyOverlay.Core.csproj" />
   </ItemGroup>
 
