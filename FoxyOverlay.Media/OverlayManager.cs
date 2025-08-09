@@ -48,7 +48,7 @@ public class OverlayManager
                 me.Source      = new Uri(videoPath);
                 me.IsMuted     = mute;
                 me.Stretch     = Stretch.Uniform;
-                // TODO: attach your chroma‐key shader or OpacityMask here
+                // TODO: add chroma‐key shader
                 me.MediaEnded += OnEnded;
 
                 w.Show();
