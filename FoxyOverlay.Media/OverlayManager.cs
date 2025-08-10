@@ -21,19 +21,7 @@ public class OverlayManager
             var screens = Screen.AllScreens;
             int remaining = screens.Length;
             var windows = new List<OverlayWindow>();
-            
-            void OnEnded(object sender, RoutedEventArgs e)
-            {
-                if (Interlocked.Decrement(ref remaining) == 0)
-                {
-                    foreach (var w in windows)
-                        w.Close();
-                    
-                    Dispatcher.CurrentDispatcher.BeginInvokeShutdown(DispatcherPriority.Normal);
-                    tcs.TrySetResult(true);
-                }
-            }
-            
+
             foreach (var scr in screens)
             {
                 var w = new OverlayWindow
@@ -45,7 +33,16 @@ public class OverlayManager
                 };
 
                 var me = w.MediaElement;
-                me.Source      = new Uri(videoPath);
+                try
+                {
+                    me.Source      = new Uri(videoPath);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine(e);
+                    return;
+                }
+                
                 me.IsMuted     = mute;
                 me.Stretch     = Stretch.Uniform;
                 // TODO: add chroma‐key shader
@@ -58,6 +55,24 @@ public class OverlayManager
             }
             
             Dispatcher.Run();
+            return;
+
+            void OnEnded(object sender, RoutedEventArgs e)
+            {
+                if (Interlocked.Decrement(ref remaining) != 0) return;
+                foreach (var w in windows)
+                {
+                    var me = w.MediaElement;
+                    me.MediaEnded -= OnEnded;
+                    me.Source = null;
+                    w.Close();
+                }
+                
+                windows.Clear();
+
+                Dispatcher.CurrentDispatcher.BeginInvokeShutdown(DispatcherPriority.Normal);
+                tcs.TrySetResult(true);
+            }
         });
 
         sta.SetApartmentState(ApartmentState.STA);
