@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
@@ -21,11 +22,22 @@ public partial class OverlayWindow : Window
     public OverlayWindow()
     {
         InitializeComponent();
-        SourceInitialized += (s,e) => {
-            var hwnd = new WindowInteropHelper(this).Handle;
-            int ex = GetWindowLong(hwnd, GWL_EXSTYLE);
-            SetWindowLong(hwnd, GWL_EXSTYLE, ex | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW);
-        };
+        SourceInitialized += SrcInitEvent;
+    }
+
+    private void SrcInitEvent(object? sender, EventArgs e)
+    {
+        var hwnd = new WindowInteropHelper(this).Handle;
+        int ex = GetWindowLong(hwnd, GWL_EXSTYLE);
+        SetWindowLong(hwnd, GWL_EXSTYLE, ex | WS_EX_TRANSPARENT | WS_EX_TOOLWINDOW);
+    }
+
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        SourceInitialized -= SrcInitEvent;
+        mediaElement.Close();
+        mediaElement = null;
+        base.OnClosing(e);
     }
     
     public MediaElement MediaElement => mediaElement;
