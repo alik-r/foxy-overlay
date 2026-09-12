@@ -6,7 +6,7 @@ using System.Threading.Tasks;
 using FoxyOverlay.Core.Services.Abstractions;
 
 
-namespace FoxyOverlay.Core.UnitTests.Stubs;
+namespace FoxyOverlay.Services.UnitTests.Stubs;
 
 /// <summary>Captures log lines in memory so tests can assert on them.</summary>
 public sealed class NullLoggingService : ILoggingService
