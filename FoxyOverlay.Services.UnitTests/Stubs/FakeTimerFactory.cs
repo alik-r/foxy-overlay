@@ -1,3 +1,4 @@
+﻿using System.Collections.Generic;
 using System.Threading;
 
 using FoxyOverlay.Services.Utils.Abstractions;
@@ -6,13 +7,19 @@ using ITimer = FoxyOverlay.Services.Utils.Abstractions.ITimer;
 
 namespace FoxyOverlay.Services.UnitTests.Stubs;
 
-public class FakeTimerFactory : ITimerFactory
+public sealed class FakeTimerFactory : ITimerFactory
 {
-    public FakeTimer TimerInstance { get; } = new FakeTimer();
+    private readonly List<FakeTimer> _created = new List<FakeTimer>();
+
+    /// <summary>The most recently created timer, which is the live one.</summary>
+    public FakeTimer Current => _created[^1];
+
+    public IReadOnlyList<FakeTimer> Created => _created;
 
     public ITimer Create(TimerCallback callback)
     {
-        TimerInstance.OnChangeCallback = callback;
-        return TimerInstance;
+        var timer = new FakeTimer { Callback = callback };
+        _created.Add(timer);
+        return timer;
     }
 }

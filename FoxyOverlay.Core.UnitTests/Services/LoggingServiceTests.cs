@@ -1,112 +1,105 @@
-using System;
-using System.IO;
+﻿using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
 using FluentAssertions;
 
 using FoxyOverlay.Core.Services;
-using FoxyOverlay.Core.Services.Abstractions;
+using FoxyOverlay.Core.UnitTests.Stubs;
 
 
 namespace FoxyOverlay.Core.UnitTests.Services;
 
-public class LoggingServiceTests : IDisposable
+public class LoggingServiceTests
 {
-    private readonly string _logDir;
-    private readonly string _logFilePath;
-    
-    private LoggingService CreateSut() => new LoggingService(_logFilePath);
-
-    public LoggingServiceTests()
-    {
-        _logDir = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
-        Directory.CreateDirectory(_logDir);
-        _logFilePath = Path.Combine(_logDir, "app.log");
-    }
-    
-    public void Dispose()
-    {
-        if (Directory.Exists(_logDir))
-            Directory.Delete(_logDir, true);
-    }
-
-    [Theory]
-    [InlineData("info")]
-    public async Task LogInfoAsync_AppendsInfoLog(string message)
-    {
-        ILoggingService sut = CreateSut();
-        
-        await sut.LogInfoAsync(message);
-        
-        var text = await File.ReadAllTextAsync(_logFilePath);
-        text.Should().Contain(message);
-    }
-    
-    [Theory]
-    [InlineData("exception")]
-    public async Task LogErrorAsync_AppendsErrorLog(string message)
-    {
-        ILoggingService sut = CreateSut();
-        
-        await sut.LogErrorAsync(message);
-        
-        var text = await File.ReadAllTextAsync(_logFilePath);
-        text.Should().Contain(message);
-    }
-    
     [Fact]
-    public async Task ReadLogsAsync_NoFile_ReturnsEmpty()
+    public async Task LogInfoAsync_WritesALineWithLevelAndMessage()
     {
-        ILoggingService sut = CreateSut();
+        using var temp = new TempDirectory();
+        using var logger = new LoggingService(temp.File("app.log"));
 
-        var result = await sut.ReadLogsAsync();
+        await logger.LogInfoAsync("hello");
 
-        result.Should().BeEmpty();
+        string contents = await File.ReadAllTextAsync(temp.File("app.log"));
+        contents.Should().Contain("INFO").And.Contain("hello");
     }
-    
+
     [Fact]
-    public async Task ReadLogsAsync_FewerThanMaxLines_ReturnsAllLines()
+    public async Task EachLevelIsLabelled()
     {
-        // arrange
-        var lines = new[]
-        {
-            "Line one",
-            "Line two",
-            "Line three"
-        };
-        File.WriteAllLines(_logFilePath, lines);
+        using var temp = new TempDirectory();
+        using var logger = new LoggingService(temp.File("app.log"));
 
-        ILoggingService sut = CreateSut();
+        await logger.LogInfoAsync("i");
+        await logger.LogWarnAsync("w");
+        await logger.LogErrorAsync("e");
 
-        // act
-        var result = await sut.ReadLogsAsync(maxLines: 5);
-
-        // assert
-        var enumerable = result as string[] ?? result.ToArray();
-        enumerable.Should().HaveCount(lines.Length);
-        enumerable.Should().BeEquivalentTo(lines, options => options.WithStrictOrdering());
+        string contents = await File.ReadAllTextAsync(temp.File("app.log"));
+        contents.Should().Contain("INFO: i").And.Contain("WARN: w").And.Contain("ERROR: e");
     }
-    
-    [Theory]
-    [InlineData(3, 5)]
-    [InlineData(1, 10)]
-    public async Task ReadLogsAsync_MoreThanMaxLines_ReturnsLastMaxLines(int maxLines, int totalLines)
+
+    [Fact]
+    public async Task ReadLogsAsync_ReturnsOnlyTheLastNLines()
     {
-        // arrange
-        var all = Enumerable.Range(1, totalLines)
-            .Select(i => $"Log {i}")
-            .ToArray();
-        File.WriteAllLines(_logFilePath, all);
+        using var temp = new TempDirectory();
+        using var logger = new LoggingService(temp.File("app.log"));
 
-        ILoggingService sut = CreateSut();
+        for (int i = 0; i < 50; i++)
+            await logger.LogInfoAsync($"line {i}");
 
-        // act
-        var result = (await sut.ReadLogsAsync(maxLines)).ToArray();
+        var lines = (await logger.ReadLogsAsync(maxLines: 10)).ToList();
 
-        // assert
-        var expected = all.Skip(totalLines - maxLines).ToArray();
-        result.Should().HaveCount(maxLines)
-            .And.BeEquivalentTo(expected, options => options.WithStrictOrdering());
+        lines.Should().HaveCount(10);
+        lines.Last().Should().Contain("line 49");
+    }
+
+    [Fact]
+    public async Task ReadLogsAsync_IsEmptyBeforeAnythingIsLogged()
+    {
+        using var temp = new TempDirectory();
+        using var logger = new LoggingService(temp.File("app.log"));
+
+        (await logger.ReadLogsAsync()).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Rotates_OnceTheFileExceedsItsSizeLimit()
+    {
+        // The app runs unattended for days; an unbounded log slowly eats the disk.
+        using var temp = new TempDirectory();
+        string path = temp.File("app.log");
+        using var logger = new LoggingService(path, maxBytes: 512, retainedFiles: 2);
+
+        for (int i = 0; i < 60; i++)
+            await logger.LogInfoAsync(new string('x', 60));
+
+        File.Exists(temp.File("app.1.log")).Should().BeTrue("the previous log becomes app.1.log");
+        new FileInfo(path).Length.Should().BeLessThan(2048, "the live log is truncated by rotation");
+    }
+
+    [Fact]
+    public async Task Rotation_DiscardsArchivesBeyondTheRetentionLimit()
+    {
+        using var temp = new TempDirectory();
+        using var logger = new LoggingService(temp.File("app.log"), maxBytes: 256, retainedFiles: 2);
+
+        for (int i = 0; i < 200; i++)
+            await logger.LogInfoAsync(new string('y', 60));
+
+        File.Exists(temp.File("app.3.log")).Should().BeFalse("only 2 archives are retained");
+        Directory.GetFiles(temp.Path, "app*.log").Length.Should().BeLessThan(4, "app.log plus at most 2 archives");
+    }
+
+    [Fact]
+    public async Task ConcurrentWrites_DoNotInterleaveOrThrow()
+    {
+        using var temp = new TempDirectory();
+        using var logger = new LoggingService(temp.File("app.log"));
+
+        await Task.WhenAll(Enumerable.Range(0, 100).Select(i => logger.LogInfoAsync($"m{i}")));
+
+        var lines = (await logger.ReadLogsAsync(1000)).ToList();
+        lines.Should().HaveCount(100);
+        lines.Should().OnlyContain(line => line.Contains("INFO"));
     }
 }

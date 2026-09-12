@@ -1,0 +1,26 @@
+<Window x:Class="FoxyOverlay.Media.Overlay.OverlayWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        Topmost="True"
+        ShowInTaskbar="False"
+        ShowActivated="False"
+        ResizeMode="NoResize"
+        WindowStartupLocation="Manual"
+        SizeToContent="Manual"
+        WindowState="Normal"
+        Focusable="False"
+        IsHitTestVisible="False"
+        UseLayoutRounding="True">
+    <!--
+        An Image, not a MediaElement. WPF drops a layered (AllowsTransparency) window
+        to software rendering, where a D3D/EVR-backed MediaElement renders nothing at
+        all. Blitting pre-keyed frames composites correctly in software.
+    -->
+    <Image x:Name="FrameImage"
+           Stretch="Uniform"
+           RenderOptions.BitmapScalingMode="LowQuality"
+           SnapsToDevicePixels="True" />
+</Window>

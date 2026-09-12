@@ -1,0 +1,130 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  test:
+    name: Build and test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: ${{ runner.os }}-nuget-
+
+      - run: dotnet restore
+
+      # The WPF project targets net8.0-windows but builds on Linux too, thanks to
+      # EnableWindowsTargeting in Directory.Build.props. Building it on both keeps
+      # that claim honest.
+      - run: dotnet build --no-restore --configuration Release
+
+      - name: Test
+        run: >
+          dotnet test --no-build --configuration Release
+          --logger "trx;LogFileName=results.trx"
+          --collect:"XPlat Code Coverage"
+          --results-directory artifacts/test-results
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.os }}
+          path: artifacts/test-results
+          retention-days: 14
+
+  assets:
+    name: Verify the baked pack
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install ffmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
+      # The committed pack in assets/foxy is generated from assets/source/foxy.mp4.
+      # Re-bake it here and compare the shape of the result, so the two cannot drift
+      # apart unnoticed. Byte equality is deliberately not asserted: PNG output varies
+      # between ffmpeg builds, and that is not a real failure.
+      - name: Re-bake and compare against the committed pack
+        run: |
+          ./scripts/bake.sh assets/source/foxy.mp4 /tmp/rebaked
+          echo "--- committed ---"; cat assets/foxy/pack.json
+          echo "--- rebaked ---";   cat /tmp/rebaked/pack.json
+
+          field() { python3 -c "import json,sys; print(json.load(open(sys.argv[1]))[sys.argv[2]])" "$1" "$2"; }
+          for key in width height frameCount frameRate framePattern audioFile; do
+            committed=$(field assets/foxy/pack.json "$key")
+            rebaked=$(field /tmp/rebaked/pack.json "$key")
+            if [ "$committed" != "$rebaked" ]; then
+              echo "::error::pack.json '$key' drifted: committed=$committed rebaked=$rebaked"
+              exit 1
+            fi
+            echo "ok: $key = $committed"
+          done
+
+          committed_frames=$(find assets/foxy -name 'frame_*.png' | wc -l)
+          declared=$(field assets/foxy/pack.json frameCount)
+          if [ "$committed_frames" != "$declared" ]; then
+            echo "::error::assets/foxy has $committed_frames frame files but declares $declared"
+            exit 1
+          fi
+          echo "ok: $committed_frames frame files match the manifest"
+
+  package:
+    name: Package Windows build
+    runs-on: windows-latest
+    needs: test
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish (framework-dependent)
+        run: >
+          dotnet publish FoxyOverlay.Media/FoxyOverlay.Media.csproj
+          --configuration Release --runtime win-x64 --self-contained false
+          --output artifacts/foxy-overlay-win-x64
+
+      - name: Check the pack shipped alongside the executable
+        shell: pwsh
+        run: |
+          $pack = "artifacts/foxy-overlay-win-x64/assets/foxy/pack.json"
+          if (-not (Test-Path $pack)) { throw "the bundled pack is missing from the publish output" }
+          $frames = (Get-ChildItem "artifacts/foxy-overlay-win-x64/assets/foxy" -Filter 'frame_*.png').Count
+          $declared = (Get-Content $pack | ConvertFrom-Json).frameCount
+          if ($frames -ne $declared) { throw "published pack has $frames frames, manifest declares $declared" }
+          Write-Host "ok: published pack has $frames frames"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: foxy-overlay-win-x64
+          path: artifacts/foxy-overlay-win-x64
+          retention-days: 30

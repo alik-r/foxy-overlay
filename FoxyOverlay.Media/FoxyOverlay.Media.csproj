@@ -1,26 +1,43 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-    <ItemGroup>
-        <ProjectReference Include="..\FoxyOverlay.Core\FoxyOverlay.Core.csproj" />
-        <ProjectReference Include="..\FoxyOverlay.Services\FoxyOverlay.Services.csproj" />
-    </ItemGroup>
 
-    <ItemGroup>
-        <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.6" />
-        <PackageReference Include="Microsoft.Extensions.Hosting" Version="9.0.6" />
-        <PackageReference Include="System.Text.Json" Version="9.0.6" />
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <UseAppHost>true</UseAppHost>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\foxy.ico</ApplicationIcon>
+    <AssemblyName>FoxyOverlay</AssemblyName>
+    <RootNamespace>FoxyOverlay.Media</RootNamespace>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+    <!--
+      WFAC010 tells WinForms apps to set DPI awareness via ApplicationConfiguration
+      instead of the manifest. This is a WPF app that only borrows NotifyIcon and
+      Screen from WinForms; it never calls ApplicationConfiguration.Initialize(),
+      so the manifest is the mechanism that actually applies.
+    -->
+    <NoWarn>$(NoWarn);WFAC010</NoWarn>
+  </PropertyGroup>
 
-    </ItemGroup>
-    
-    <PropertyGroup>
-        <OutputType>WinExe</OutputType>
-        <TargetFramework>net8.0-windows</TargetFramework>
-        <Nullable>enable</Nullable>
-        <ImplicitUsings>disable</ImplicitUsings>
-        <UseWPF>true</UseWPF>
-        <UseWindowsForms>true</UseWindowsForms>
-        <PublishTrimmed>false</PublishTrimmed>
-        <UseAppHost>true</UseAppHost>
-    </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\FoxyOverlay.Core\FoxyOverlay.Core.csproj" />
+    <ProjectReference Include="..\FoxyOverlay.Services\FoxyOverlay.Services.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\foxy.ico" />
+  </ItemGroup>
+
+  <!-- The bundled pack ships next to the executable; PackLoader looks it up there. -->
+  <ItemGroup>
+    <Content Include="..\assets\foxy\**\*" Link="assets\foxy\%(RecursiveDir)%(Filename)%(Extension)">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
 
 </Project>

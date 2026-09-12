@@ -1,0 +1,11 @@
+{
+  "name": "foxy",
+  "width": 946,
+  "height": 720,
+  "frameCount": 25,
+  "frameRate": "24000/1001",
+  "framePattern": "frame_{0:D3}.png",
+  "audioFile": "audio.wav",
+  "source": "foxy.mp4",
+  "bakedWith": "chromakey=0x00FE00:0.12:0.06,despill=type=green:mix=0.6:expand=0.4,format=rgba"
+}
