@@ -1,0 +1,80 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to build, e.g. 1.0.0
+        required: true
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  release:
+    runs-on: windows-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Work out the version
+        id: version
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - run: dotnet test --configuration Release
+
+      # Self-contained: runs on a machine with no .NET installed, which is the normal
+      # case for someone downloading a joke app.
+      - name: Publish self-contained
+        run: >
+          dotnet publish FoxyOverlay.Media/FoxyOverlay.Media.csproj
+          --configuration Release --runtime win-x64 --self-contained true
+          -p:Version=${{ steps.version.outputs.value }}
+          -p:PublishSingleFile=false
+          --output dist/foxy-overlay-${{ steps.version.outputs.value }}-win-x64-selfcontained
+
+      # Framework-dependent: much smaller, needs the .NET 8 Desktop Runtime.
+      - name: Publish framework-dependent
+        run: >
+          dotnet publish FoxyOverlay.Media/FoxyOverlay.Media.csproj
+          --configuration Release --runtime win-x64 --self-contained false
+          -p:Version=${{ steps.version.outputs.value }}
+          --output dist/foxy-overlay-${{ steps.version.outputs.value }}-win-x64
+
+      - name: Zip
+        shell: pwsh
+        run: |
+          Get-ChildItem dist -Directory | ForEach-Object {
+            Compress-Archive -Path "$($_.FullName)/*" -DestinationPath "dist/$($_.Name).zip"
+          }
+          Get-ChildItem dist -Filter *.zip | Format-Table Name, Length
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+          generate_release_notes: true
+          body: |
+            ## Foxy Overlay ${{ steps.version.outputs.value }}
+
+            | Download | Needs .NET installed? |
+            | --- | --- |
+            | `...-win-x64-selfcontained.zip` | No — just unzip and run `FoxyOverlay.exe` |
+            | `...-win-x64.zip` | Yes — [.NET 8 Desktop Runtime](https://dotnet.microsoft.com/download/dotnet/8.0) |
+
+            Unzip somewhere permanent and run `FoxyOverlay.exe`. It lives in the
+            notification area; right-click the icon for settings.
