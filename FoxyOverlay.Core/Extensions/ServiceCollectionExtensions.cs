@@ -1,5 +1,6 @@
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 
+using FoxyOverlay.Core.Packs;
 using FoxyOverlay.Core.Services;
 using FoxyOverlay.Core.Services.Abstractions;
 
@@ -8,15 +9,14 @@ namespace FoxyOverlay.Core.Extensions;
 
 public static class ServiceCollectionExtensions
 {
-    public static IServiceCollection AddConfigService(this IServiceCollection services)
-    {
-        services.AddSingleton<IConfigService, ConfigService>();
-        return services;
-    }
-    
-    public static IServiceCollection AddLoggingService(this IServiceCollection services)
+    /// <summary>Registers config, logging, stats and pack loading as singletons.</summary>
+    public static IServiceCollection AddFoxyCore(this IServiceCollection services)
     {
         services.AddSingleton<ILoggingService, LoggingService>();
+        services.AddSingleton<IConfigService, ConfigService>();
+        services.AddSingleton<IStatsService, StatsService>();
+        services.AddSingleton<PackLoader>();
+        services.AddSingleton<PackBaker>();
         return services;
     }
 }

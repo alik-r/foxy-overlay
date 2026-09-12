@@ -1,6 +1,7 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 
 using FoxyOverlay.Core.Services.Abstractions;
@@ -8,47 +9,55 @@ using FoxyOverlay.Core.Services.Abstractions;
 
 namespace FoxyOverlay.Core.Services;
 
-public class ConfigService : IConfigService
+public sealed class ConfigService : IConfigService
 {
-    private readonly string _filePath;
-    private readonly JsonSerializerOptions _jsonOptions = new JsonSerializerOptions
+    private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions
     {
-        WriteIndented = true
+        WriteIndented = true,
+        PropertyNameCaseInsensitive = true
     };
 
     private readonly ILoggingService _logger;
+    private readonly SemaphoreSlim _semaphore = new SemaphoreSlim(1, 1);
+
+    public ConfigService(ILoggingService logger)
+        : this(logger, AppPaths.ConfigFile)
+    {
+    }
 
     public ConfigService(ILoggingService logger, string filePath)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _filePath = filePath ?? throw new ArgumentNullException(nameof(filePath));
+        FilePath = filePath ?? throw new ArgumentNullException(nameof(filePath));
     }
-    
-    public ConfigService(ILoggingService logger)
-        : this(logger,
-            Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
-                "FoxyOverlay",
-                "config.json"))
-    {
-    }
-    
+
+    public string FilePath { get; }
+
     public async Task<Config> LoadAsync()
     {
-        if (!File.Exists(_filePath))
-            return new Config();
-        
+        await _semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            string json = await File.ReadAllTextAsync(_filePath).ConfigureAwait(false);
-            Config? cfg = JsonSerializer.Deserialize<Config>(json, _jsonOptions);
-            await _logger.LogInfoAsync($"config loaded from {_filePath}");
-            return cfg ?? new Config();
+            if (!File.Exists(FilePath))
+                return new Config();
+
+            string json = await File.ReadAllTextAsync(FilePath).ConfigureAwait(false);
+            Config config = JsonSerializer.Deserialize<Config>(json, JsonOptions) ?? new Config();
+
+            foreach (string warning in config.Validate())
+                await _logger.LogWarnAsync($"config: {warning}").ConfigureAwait(false);
+
+            return config;
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is JsonException or IOException or UnauthorizedAccessException)
         {
-            await _logger.LogErrorAsync($"failed to load config from {_filePath}: {ex.Message}");
+            await _logger.LogErrorAsync($"failed to load config from {FilePath}, using defaults: {ex.Message}")
+                         .ConfigureAwait(false);
             return new Config();
+        }
+        finally
+        {
+            _semaphore.Release();
         }
     }
 
@@ -56,19 +65,31 @@ public class ConfigService : IConfigService
     {
         if (config == null) throw new ArgumentNullException(nameof(config));
 
+        foreach (string warning in config.Validate())
+            await _logger.LogWarnAsync($"config: {warning}").ConfigureAwait(false);
+
+        await _semaphore.WaitAsync().ConfigureAwait(false);
         try
         {
-            var dir = Path.GetDirectoryName(_filePath)!;
-            if (!Directory.Exists(dir))
-                Directory.CreateDirectory(dir);
-            var json = JsonSerializer.Serialize(config, _jsonOptions);
-            await File.WriteAllTextAsync(_filePath, json).ConfigureAwait(false);
-            await _logger.LogInfoAsync($"config saved to {_filePath}");
+            string directory = Path.GetDirectoryName(FilePath)!;
+            Directory.CreateDirectory(directory);
+
+            // Write-then-rename: a crash mid-save leaves the previous config intact
+            // rather than a truncated file the next launch would fall back on.
+            string temporary = FilePath + ".tmp";
+            await File.WriteAllTextAsync(temporary, JsonSerializer.Serialize(config, JsonOptions)).ConfigureAwait(false);
+            File.Move(temporary, FilePath, overwrite: true);
+
+            await _logger.LogInfoAsync($"config saved to {FilePath}").ConfigureAwait(false);
         }
         catch (Exception ex)
         {
-            await _logger.LogErrorAsync($"failed to save config to {_filePath}: {ex.Message}");
+            await _logger.LogErrorAsync($"failed to save config to {FilePath}: {ex.Message}").ConfigureAwait(false);
             throw;
+        }
+        finally
+        {
+            _semaphore.Release();
         }
     }
 }
