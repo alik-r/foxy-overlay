@@ -6,7 +6,7 @@
 
 A desktop port of the [Foxy Jumpscare Terraria mod](https://steamcommunity.com/workshop/filedetails/?id=3525193051):
 every second, it rolls a one-in-ten-thousand chance, and when the dice come up Foxy
-he lunges out of your screen, transparently, over whatever you happen to be doing.
+lunges out of your screen, transparently, over whatever you happen to be doing.
 
 ![Foxy lunging over a desktop](docs/demo.gif)
 
